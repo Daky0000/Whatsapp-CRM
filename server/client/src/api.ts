@@ -70,6 +70,7 @@ export interface Me {
     replyLanguage: string;
     hoursOpen: string;
     hoursClose: string;
+    dailySummaryEmail: boolean;
   };
   billing: { active: boolean; limits: Record<string, number | boolean | null | string>; usage: { triage: number; drafts: number } };
   connection: { mode: "CLOUD" | "IMPORT"; displayPhone: string | null; verifiedName: string | null; coexistence: boolean; historySyncedAt: string | null } | null;

@@ -11,9 +11,20 @@ interface Dashboard {
   messages7d: { inbound: number; outbound: number };
 }
 
+interface Summary {
+  date: string;
+  newChats: number;
+  newOrders: number;
+  paidGhs: number;
+  repliesWaiting: number;
+  unanswered: Array<{ conversationId: string; name: string; waitingHours: number }>;
+  openComplaints: number;
+}
+
 export default function DashboardPage() {
   const { me } = useMe();
   const { data, reload } = useLoad(() => api<Dashboard>("/dashboard"));
+  const summary = useLoad(() => api<Summary>("/summary"));
   const { busy, run } = useAction();
   const toast = useToast();
 
@@ -41,6 +52,7 @@ export default function DashboardPage() {
           </button>
         }
       />
+      {summary.data && <MorningSummary s={summary.data} />}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Replies waiting for approval" value={data?.pendingDrafts} to="/inbox?pending=1" highlight />
         <Stat label="Chats with unread messages" value={data?.waiting} to="/inbox" />
@@ -74,6 +86,35 @@ export default function DashboardPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function MorningSummary({ s }: { s: Summary }) {
+  const yesterday = new Date(`${s.date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" });
+  return (
+    <div className="card mb-4 border-brand-100 bg-brand-50/50 p-4 text-sm">
+      <p>
+        <span className="font-semibold">Yesterday ({yesterday}):</span> {s.newChats} new customer chat{s.newChats === 1 ? "" : "s"}, {s.newOrders} order{s.newOrders === 1 ? "" : "s"} captured
+        {s.paidGhs > 0 && <>, {ghs(s.paidGhs)} paid through links</>}.
+      </p>
+      {s.unanswered.length > 0 && (
+        <p className="mt-2">
+          <span className="font-semibold text-amber-800">Waiting for you:</span>{" "}
+          {s.unanswered.map((u, i) => (
+            <span key={u.conversationId}>
+              {i > 0 && ", "}
+              <Link to={`/inbox/${u.conversationId}`} className="text-brand-700 hover:underline">{u.name}</Link>
+              <span className="text-slate-500"> ({u.waitingHours}h)</span>
+            </span>
+          ))}
+        </p>
+      )}
+      {s.openComplaints > 0 && (
+        <p className="mt-1">
+          <Link to="/inbox?category=COMPLAINT" className="text-red-700 hover:underline">{s.openComplaints} open complaint{s.openComplaints === 1 ? "" : "s"}</Link>
+        </p>
+      )}
+    </div>
   );
 }
 

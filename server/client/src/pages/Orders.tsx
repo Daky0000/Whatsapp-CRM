@@ -9,6 +9,8 @@ interface Order {
   deliveryLocation: string | null;
   totalGhs: string | null;
   stage: Stage;
+  paymentUrl: string | null;
+  paidAt: string | null;
   updatedAt: string;
   contact: { name: string | null; phone: string };
 }
@@ -53,7 +55,10 @@ export default function OrdersPage() {
                       </ul>
                       {o.deliveryLocation && <p className="mt-1 text-xs text-slate-500">📍 {o.deliveryLocation}</p>}
                       <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs font-semibold">{ghs(o.totalGhs)}</span>
+                        <span className="text-xs font-semibold">
+                          {ghs(o.totalGhs)}
+                          {o.paidAt ? <span className="ml-1.5 text-emerald-700">✓ paid</span> : o.paymentUrl ? <span className="ml-1.5 font-normal text-amber-700">link sent</span> : null}
+                        </span>
                         {canEdit && (
                           <select className="rounded border border-slate-200 px-1 py-0.5 text-xs" value={o.stage} onChange={(e) => move(o, e.target.value as Stage)}>
                             {STAGES.map((s) => (

@@ -22,6 +22,8 @@ export interface PlanLimits {
   freeBroadcastCredits: number;
   autoReplyRules: number;
   products: number;
+  /** Voice-note transcription, minutes per month (fair use). 0 = not on this plan. */
+  transcriptionMinutes: number;
   scheduledBroadcasts: boolean;
   followUps: boolean;
   orderPipeline: boolean;
@@ -43,6 +45,7 @@ export const PLANS: Record<PlanId, PlanLimits & { name: string }> = {
     freeBroadcastCredits: 50,
     autoReplyRules: 3,
     products: 20,
+    transcriptionMinutes: 0,
     scheduledBroadcasts: false,
     followUps: false,
     orderPipeline: false,
@@ -62,6 +65,7 @@ export const PLANS: Record<PlanId, PlanLimits & { name: string }> = {
     freeBroadcastCredits: 300,
     autoReplyRules: Infinity,
     products: Infinity,
+    transcriptionMinutes: 300,
     scheduledBroadcasts: true,
     followUps: true,
     orderPipeline: true,

@@ -10,6 +10,8 @@ import { normalizePhone } from "../lib/phone.js";
 import { recordMessage } from "../services/inbound.js";
 import { triageConversation } from "../services/triage.js";
 import { billingOf } from "../services/usage.js";
+import { checkOrderPayment, createOrderPaymentLink } from "../services/payLinks.js";
+import { dailySummary } from "../services/dailySummary.js";
 
 /** Orders, chat-export import and the dashboard. */
 export const businessRouter = Router();
@@ -45,6 +47,21 @@ businessRouter.patch(
     await prisma.order.update({ where: { id: order.id }, data });
     if (data.stage) await prisma.conversation.update({ where: { id: order.conversationId }, data: { stage: data.stage } });
     res.json({ ok: true });
+  }),
+);
+
+businessRouter.post(
+  "/orders/:id/payment-link",
+  h(async (req, res) => {
+    const { amountGhs } = parse(z.object({ amountGhs: z.coerce.number().positive().max(1_000_000).optional() }), req.body ?? {});
+    res.json(await createOrderPaymentLink(ws(req), param(req, "id"), amountGhs));
+  }),
+);
+
+businessRouter.post(
+  "/orders/:id/payment-check",
+  h(async (req, res) => {
+    res.json({ status: await checkOrderPayment(ws(req), param(req, "id")) });
   }),
 );
 
@@ -130,6 +147,13 @@ businessRouter.post(
 );
 
 // --- Dashboard ---
+
+businessRouter.get(
+  "/summary",
+  h(async (req, res) => {
+    res.json(await dailySummary(ws(req)));
+  }),
+);
 
 businessRouter.get(
   "/dashboard",

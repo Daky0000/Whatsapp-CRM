@@ -2,6 +2,9 @@ import express, { Router } from "express";
 import { config } from "../config.js";
 import { verifyPaystackSignature } from "../lib/paystack.js";
 import { verifyMetaSignature } from "../lib/whatsapp.js";
+import { prisma } from "../db.js";
+import { decrypt } from "../lib/crypto.js";
+import { checkOrderPayment } from "../services/payLinks.js";
 import { handlePaystackEvent } from "../services/billing.js";
 import { handleWebhook, type WebhookPayload } from "../services/inbound.js";
 
@@ -50,4 +53,28 @@ webhooksRouter.post("/paystack", raw, (req, res) => {
   if (evt.event === "charge.success" && !ours && !reference.startsWith("wcrm-") && !evt.data?.plan) return res.sendStatus(200);
   res.sendStatus(200);
   handlePaystackEvent(evt).catch((err) => console.error("[webhook:paystack]", err));
+});
+
+/**
+ * A seller's own Paystack account, for payment links to their customers. Each
+ * seller pastes their URL into their Paystack dashboard; the signature is
+ * checked with that seller's key, so one seller can't forge another's payment.
+ */
+webhooksRouter.post("/paystack-merchant/:workspaceId", raw, async (req, res) => {
+  const body = req.body as Buffer;
+  const workspace = await prisma.workspace
+    .findUnique({ where: { id: String(req.params.workspaceId) }, select: { id: true, merchantPaystackKeyEnc: true } })
+    .catch(() => null);
+  const key = workspace?.merchantPaystackKeyEnc ? decrypt(workspace.merchantPaystackKeyEnc) : null;
+  if (!workspace || !key || !Buffer.isBuffer(body) || !verifyPaystackSignature(body, req.header("x-paystack-signature"), key)) return res.sendStatus(401);
+  res.sendStatus(200);
+  try {
+    const evt = JSON.parse(body.toString("utf8")) as { event?: string; data?: { reference?: string } };
+    if (evt.event !== "charge.success" || !evt.data?.reference?.startsWith("wpay-")) return;
+    const order = await prisma.order.findFirst({ where: { workspaceId: workspace.id, paymentReference: evt.data.reference }, select: { id: true } });
+    // Re-verified with Paystack inside checkOrderPayment; the webhook only says "look now".
+    if (order) await checkOrderPayment(workspace.id, order.id);
+  } catch (err) {
+    console.error("[webhook:paystack-merchant]", err);
+  }
 });

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { requireUser } from "./lib/auth.js";
 import { HttpError } from "./lib/errors.js";
+import { analyticsRouter } from "./routes/analytics.js";
 import { authRouter } from "./routes/auth.js";
 import { billingRouter } from "./routes/billing.js";
 import { broadcastsRouter } from "./routes/broadcasts.js";
@@ -50,7 +51,7 @@ app.use("/api", (req, _res, next) => {
 app.use("/api/auth", authRouter);
 const api = express.Router();
 api.use(requireUser);
-for (const router of [settingsRouter, whatsappRouter, inboxRouter, contactsRouter, broadcastsRouter, automationRouter, businessRouter, billingRouter]) {
+for (const router of [settingsRouter, whatsappRouter, inboxRouter, contactsRouter, broadcastsRouter, automationRouter, businessRouter, analyticsRouter, billingRouter]) {
   api.use(router);
 }
 app.use("/api", api);

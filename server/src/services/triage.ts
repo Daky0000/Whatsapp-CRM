@@ -38,7 +38,7 @@ export async function triageConversation(conversationId: string, opts: { followU
     .map((m) => ({
       from: m.direction === "INBOUND" ? "customer" : "seller",
       at: m.timestamp,
-      text: m.body?.trim() || `[${m.type}]`,
+      text: m.body?.trim() || (m.transcript ? `[voice note] ${m.transcript}` : `[${m.type}]`),
     }));
 
   const lastIsInbound = convo.messages[0]!.direction === "INBOUND";

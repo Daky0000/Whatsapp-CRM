@@ -176,7 +176,7 @@ Workspace (plan, trial, limits) · User · WhatsAppConnection · Contact · Conv
 |---|---|---|
 | **0. Paperwork** | Meta business verification, Tech Provider / App Review, Paystack plans, DNS | Start now (2–6 weeks; runs alongside Phase 1) |
 | **1. MVP** (this repository) | Sign-up and workspaces, Paystack plans and limits, WhatsApp connect (Embedded Signup + manual token), webhook inbox, chat-export import, AI sorting and order details, AI drafts with approve/edit/reject, contacts and CSV import, broadcast lists and template broadcasts, keyword and away auto-replies, STOP handling, dashboard | Weeks 1–6 |
-| **2. Selling tools** | Pipeline board, follow-up reminders, message wallet top-ups, voice-note transcription, team seats, daily summary email, analytics, payment links in chat | Weeks 7–12 |
+| **2. Selling tools** (built, 25 Oct) | Pipeline board, follow-up reminders, message wallet top-ups, voice-note transcription, team seats, daily summary email, analytics, payment links in chat | Weeks 7–12 |
 | **3. Reach** | PWA, then a mobile app; Calling API; several numbers per workspace; Twi/Pidgin tuning; integration with app.dakyx.com single sign-on | Month 4+ |
 
 ## 8. Found while building

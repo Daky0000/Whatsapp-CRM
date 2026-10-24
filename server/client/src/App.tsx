@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api, type Me } from "./api";
+import AnalyticsPage from "./pages/Analytics";
 import AuthPage from "./pages/Auth";
 import BillingPage from "./pages/Billing";
 import BroadcastsPage from "./pages/Broadcasts";
@@ -18,6 +19,7 @@ const NAV = [
   { to: "/contacts", label: "Contacts", icon: "☺" },
   { to: "/broadcasts", label: "Broadcasts", icon: "📣" },
   { to: "/orders", label: "Orders", icon: "🧾" },
+  { to: "/analytics", label: "Analytics", icon: "📈" },
   { to: "/automation", label: "AI & auto-replies", icon: "⚡" },
   { to: "/settings", label: "Settings", icon: "⚙" },
   { to: "/billing", label: "Billing", icon: "₵" },
@@ -36,6 +38,8 @@ export default function App() {
     void reload();
   }, [reload]);
 
+  // Where a seller's customer lands after paying a link. Public, and claims nothing it can't know.
+  if (window.location.pathname === "/paid") return <PaidPage />;
   if (me === undefined) return <div className="grid h-screen place-items-center text-sm text-slate-400">Loading…</div>;
 
   return (
@@ -52,6 +56,7 @@ export default function App() {
               <Route path="/contacts" element={<ContactsPage />} />
               <Route path="/broadcasts" element={<BroadcastsPage />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/automation" element={<AutomationPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/billing" element={<BillingPage />} />
@@ -146,4 +151,16 @@ function Shell({ me, onLogout, children }: { me: Me; onLogout: () => void; child
 function Banner({ tone, children }: { tone: "red" | "amber" | "sky"; children: React.ReactNode }) {
   const styles = { red: "bg-red-50 text-red-800 border-red-100", amber: "bg-amber-50 text-amber-900 border-amber-100", sky: "bg-sky-50 text-sky-900 border-sky-100" };
   return <div className={`border-b px-4 py-2 text-sm ${styles[tone]}`}>{children}</div>;
+}
+
+function PaidPage() {
+  return (
+    <div className="grid min-h-dvh place-items-center bg-slate-50 p-6">
+      <div className="card max-w-sm p-8 text-center">
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-50 text-2xl">✓</div>
+        <h1 className="mt-4 text-lg font-semibold">Thank you!</h1>
+        <p className="mt-2 text-sm text-slate-600">If your payment went through, the seller can see it now. You can close this page and go back to WhatsApp.</p>
+      </div>
+    </div>
+  );
 }

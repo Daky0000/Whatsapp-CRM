@@ -54,14 +54,19 @@ interface Envelope<T> {
   data: T;
 }
 
-async function call<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+/**
+ * Every call runs on DakyXTech's key unless `key` is given. A seller's own key
+ * (payment links to their customers, services/payLinks.ts) is always passed
+ * explicitly, so the two accounts can't be mixed up by omission.
+ */
+async function call<T>(path: string, init: { method?: string; body?: unknown; key?: string } = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${BASE}${path}`, {
       method: init.method ?? "GET",
       signal: AbortSignal.timeout(12_000),
       redirect: "error",
-      headers: { authorization: `Bearer ${secretKey()}`, "content-type": "application/json" },
+      headers: { authorization: `Bearer ${init.key ?? secretKey()}`, "content-type": "application/json" },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
   } catch (err) {
@@ -88,6 +93,8 @@ export async function initializeTransaction(input: {
   metadata: Record<string, unknown>;
   /** A Paystack plan code: Paystack then creates a renewing subscription after the first card charge. */
   plan?: string;
+  /** A seller's own secret key; omitted for DakyXTech's own billing. */
+  key?: string;
 }): Promise<{ url: string; reference: string }> {
   const data = await call<{ authorization_url: string; reference: string }>("/transaction/initialize", {
     method: "POST",
@@ -100,6 +107,7 @@ export async function initializeTransaction(input: {
       metadata: input.metadata,
       ...(input.plan ? { plan: input.plan } : {}),
     },
+    key: input.key,
   });
   if (data?.reference !== input.reference || !isPaystackUrl(data.authorization_url)) {
     throw new HttpError(502, "Paystack returned an invalid checkout.");
@@ -129,7 +137,7 @@ export interface VerifiedTransaction {
   customerCode: string | null;
 }
 
-export async function verifyTransaction(reference: string): Promise<VerifiedTransaction> {
+export async function verifyTransaction(reference: string, key?: string): Promise<VerifiedTransaction> {
   const data = await call<{
     reference: string;
     status: string;
@@ -139,12 +147,13 @@ export async function verifyTransaction(reference: string): Promise<VerifiedTran
     paid_at: string | null;
     domain: string;
     customer?: { email?: string; customer_code?: string };
-  }>(`/transaction/verify/${encodeURIComponent(reference)}`);
+  }>(`/transaction/verify/${encodeURIComponent(reference)}`, { key });
   if (data?.reference !== reference || !Number.isSafeInteger(data.amount)) {
     throw new HttpError(502, "Paystack returned an invalid verification.");
   }
-  // A test payment must never activate a live workspace.
-  if (data.domain !== paystackMode()) throw new HttpError(409, "Payment mode does not match.");
+  // A test payment must never count as real money.
+  const expected = key ? (key.startsWith("sk_live_") ? "live" : "test") : paystackMode();
+  if (data.domain !== expected) throw new HttpError(409, "Payment mode does not match.");
   return {
     reference: data.reference,
     paid: data.status === "success",
@@ -178,10 +187,19 @@ export async function disableSubscription(code: string): Promise<void> {
  * key (Paystack has no separate webhook secret). The route must see the raw
  * body: a re-serialised JSON body fails the check.
  */
-export function verifyPaystackSignature(rawBody: Buffer, signature: string | undefined): boolean {
+export function verifyPaystackSignature(rawBody: Buffer, signature: string | undefined, merchantKey?: string): boolean {
   if (typeof signature !== "string" || !/^[a-f0-9]{128}$/i.test(signature)) return false;
   const mode = paystackMode();
-  const key = mode ? paystackKeys()[mode] : null;
+  const key = merchantKey ?? (mode ? paystackKeys()[mode] : null);
   if (!key) return false;
   return safeEqualHex(hmacHex("sha512", key, rawBody), signature);
+}
+
+/** Confirms a seller's key works before it is stored. Returns whether it is live. */
+export async function checkSecretKey(key: string): Promise<{ live: boolean }> {
+  if (!/^sk_(test|live)_[A-Za-z0-9]+$/.test(key)) throw new HttpError(400, "That isn't a Paystack secret key. It starts with sk_live_ or sk_test_.");
+  const response = await fetch(`${BASE}/balance`, { headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(12_000), redirect: "error" }).catch(() => null);
+  if (response?.status === 401) throw new HttpError(400, "Paystack rejected that key. Copy it again from Paystack → Settings → API Keys & Webhooks.");
+  if (!response?.ok) throw new HttpError(502, "Couldn't reach Paystack to check the key. Try again.");
+  return { live: key.startsWith("sk_live_") };
 }

@@ -26,6 +26,7 @@ export default function SettingsPage() {
       <div className="space-y-4">
         <WhatsAppConnection />
         <BusinessProfile />
+        <SellerPayments />
         <Team />
       </div>
     </>
@@ -192,6 +193,7 @@ function BusinessProfile() {
     replyLanguage: me.workspace.replyLanguage,
     hoursOpen: me.workspace.hoursOpen,
     hoursClose: me.workspace.hoursClose,
+    dailySummaryEmail: me.workspace.dailySummaryEmail,
   });
   const { busy, run } = useAction();
   const save = async () => {
@@ -234,6 +236,10 @@ function BusinessProfile() {
           </div>
         </div>
       </div>
+      <label className="mt-4 flex items-center gap-2 text-sm">
+        <input type="checkbox" disabled={disabled} checked={form.dailySummaryEmail} onChange={(e) => setForm({ ...form, dailySummaryEmail: e.target.checked })} />
+        Email me a summary every morning at 7am (yesterday's chats and orders, and who's still waiting)
+      </label>
       {!disabled && <button className="btn-primary mt-4" onClick={save} disabled={busy}>Save</button>}
     </section>
   );
@@ -278,6 +284,56 @@ function Team() {
             <button className="btn-primary w-full" onClick={add} disabled={busy}>Add</button>
           </div>
         </Modal>
+      )}
+    </section>
+  );
+}
+
+function SellerPayments() {
+  const { me } = useMe();
+  const status = useLoad(() => api<{ connected: boolean; webhookUrl: string }>("/payments"));
+  const [key, setKey] = useState("");
+  const { busy, run } = useAction();
+  const toast = useToast();
+  const isOwner = me.user.role === "OWNER";
+  const save = async () => {
+    const r = await run(() => api<{ live: boolean }>("/payments/merchant-key", { method: "PUT", body: { secretKey: key } }));
+    if (r) {
+      toast(r.live ? "Paystack connected. Payment links will take real money." : "Paystack TEST key connected. Links won't take real money.");
+      setKey("");
+      void status.reload();
+    }
+  };
+  return (
+    <section className="card p-5">
+      <h2 className="text-sm font-semibold">Get paid in chat</h2>
+      <p className="mt-1 text-xs text-slate-500">
+        Connect <b>your own</b> Paystack account to send customers a Mobile Money or card payment link from any order. The money goes straight to your Paystack, not through DakyX.
+      </p>
+      {status.data?.connected ? (
+        <div className="mt-3 space-y-3 text-sm">
+          <p>✅ Your Paystack is connected.</p>
+          <div>
+            <label className="label">So paid orders update instantly, paste this in Paystack → Settings → API Keys & Webhooks → Webhook URL</label>
+            <div className="flex gap-2">
+              <input className="input font-mono text-xs" readOnly value={status.data.webhookUrl} onFocus={(e) => e.target.select()} />
+              <button className="btn-ghost shrink-0" onClick={() => navigator.clipboard.writeText(status.data!.webhookUrl).then(() => toast("Copied"))}>Copy</button>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Without it, payments are still picked up, within about 10 minutes.</p>
+          </div>
+          {isOwner && (
+            <button className="btn-danger" disabled={busy} onClick={() => confirm("Disconnect your Paystack? Existing links keep working, but new ones can't be made.") && run(() => api("/payments/merchant-key", { method: "DELETE" }), "Disconnected").then(status.reload)}>
+              Disconnect Paystack
+            </button>
+          )}
+        </div>
+      ) : isOwner ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input className="input max-w-md font-mono text-xs" placeholder="sk_live_…  (Paystack → Settings → API Keys & Webhooks)" value={key} onChange={(e) => setKey(e.target.value)} />
+          <button className="btn-primary" disabled={busy || !key.trim()} onClick={save}>Connect</button>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-slate-500">Ask the owner to connect Paystack.</p>
       )}
     </section>
   );

@@ -26,6 +26,7 @@ interface Message {
   error: string | null;
   origin: string;
   autoRuleId: string | null;
+  transcript: string | null;
   timestamp: string;
 }
 
@@ -45,7 +46,16 @@ interface Thread {
   contact: { id: string; name: string | null; phone: string; optedOut: boolean };
   messages: Message[];
   drafts: Draft[];
-  order: { items: Array<{ name: string; quantity: number; variant: string | null; unitPriceGhs: number | null }>; deliveryLocation: string | null; totalGhs: string | null } | null;
+  order: {
+    id: string;
+    items: Array<{ name: string; quantity: number; variant: string | null; unitPriceGhs: number | null }>;
+    deliveryLocation: string | null;
+    totalGhs: string | null;
+    paymentUrl: string | null;
+    paymentPesewas: number | null;
+    paidAt: string | null;
+    paymentChannel: string | null;
+  } | null;
   windowOpen: boolean;
   sendRoute: "api" | "link";
 }
@@ -110,7 +120,7 @@ export default function InboxPage() {
               </div>
               <p className="mt-0.5 truncate text-xs text-slate-500">
                 {c.lastMessage?.direction === "OUTBOUND" && "You: "}
-                {c.lastMessage?.body ?? (c.lastMessage ? `[${c.lastMessage.type}]` : "")}
+                {c.lastMessage?.body ?? (c.lastMessage ? (c.lastMessage.type === "audio" ? "🎤 Voice note" : `[${c.lastMessage.type}]`) : "")}
               </p>
               <div className="mt-1.5 flex items-center gap-1.5">
                 <CategoryBadge category={c.category} />
@@ -234,6 +244,7 @@ function ThreadView({ id, onChanged }: { id: string; onChanged: () => void }) {
               🧾 {t.order.items.map((i) => `${i.quantity}× ${i.name}${i.variant ? ` (${i.variant})` : ""}`).join(", ")}
               {t.order.deliveryLocation && ` → ${t.order.deliveryLocation}`}
               {t.order.totalGhs && <span className="font-semibold"> · {ghs(t.order.totalGhs)}</span>}
+              <PaymentControls order={t.order} onLink={(message) => setComposer(message)} onChanged={refresh} />
             </div>
           )}
         </div>
@@ -244,6 +255,7 @@ function ThreadView({ id, onChanged }: { id: string; onChanged: () => void }) {
           <div key={m.id} className={`flex ${m.direction === "OUTBOUND" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm shadow-sm ${m.direction === "OUTBOUND" ? "bg-[#d9fdd3]" : "bg-white"}`}>
               {m.mediaId && <Media message={m} cloud={t.sendRoute === "api"} />}
+              {m.type === "audio" && t.sendRoute === "api" && <Transcript message={m} onDone={refresh} />}
               {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
               {!m.body && !m.mediaId && <p className="text-slate-400 italic">[{m.type}]</p>}
               <div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-slate-500">
@@ -319,6 +331,61 @@ function ThreadView({ id, onChanged }: { id: string; onChanged: () => void }) {
         </button>
       </div>
     </div>
+  );
+}
+
+function PaymentControls({ order, onLink, onChanged }: { order: NonNullable<Thread["order"]>; onLink: (message: string) => void; onChanged: () => void }) {
+  const { busy, run } = useAction();
+  const toast = useToast();
+  if (order.paidAt) {
+    return (
+      <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800">
+        ✓ Paid {ghs((order.paymentPesewas ?? 0) / 100)}{order.paymentChannel ? ` · ${order.paymentChannel.replace("_", " ")}` : ""}
+      </span>
+    );
+  }
+  const createLink = async () => {
+    let amountGhs: number | undefined;
+    if (!order.totalGhs) {
+      const typed = prompt("Amount to charge (GHS)?");
+      if (!typed) return;
+      amountGhs = Number(typed);
+    }
+    const r = await run(() => api<{ message: string }>(`/orders/${order.id}/payment-link`, { body: { amountGhs } }));
+    if (r) {
+      onLink(r.message);
+      toast("Payment link added to your reply box. Check it and press Send.");
+      onChanged();
+    }
+  };
+  const check = async () => {
+    const r = await run(() => api<{ status: string }>(`/orders/${order.id}/payment-check`, { body: {} }));
+    if (r) toast(r.status === "paid" ? "Paid! The order is marked Paid." : "Not paid yet.", r.status === "paid" ? "ok" : "error");
+    onChanged();
+  };
+  return (
+    <span className="ml-2 inline-flex gap-2">
+      <button className="font-medium text-brand-700 hover:underline disabled:opacity-50" disabled={busy} onClick={createLink}>
+        {order.paymentUrl ? "New payment link" : "💳 Payment link"}
+      </button>
+      {order.paymentUrl && (
+        <button className="text-slate-500 hover:underline disabled:opacity-50" disabled={busy} onClick={check}>
+          Check payment
+        </button>
+      )}
+    </span>
+  );
+}
+
+function Transcript({ message, onDone }: { message: Message; onDone: () => void }) {
+  const { busy, run } = useAction();
+  if (message.transcript !== null) {
+    return <p className="mb-1 border-l-2 border-slate-300 pl-2 text-xs text-slate-600 italic">“{message.transcript || "(no speech heard)"}”</p>;
+  }
+  return (
+    <button className="mb-1 text-xs text-brand-700 hover:underline disabled:opacity-50" disabled={busy} onClick={() => run(() => api(`/messages/${message.id}/transcribe`, { body: {} })).then(onDone)}>
+      {busy ? "Transcribing…" : "Transcribe voice note"}
+    </button>
   );
 }
 

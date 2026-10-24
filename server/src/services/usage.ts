@@ -63,4 +63,5 @@ export const METRIC = {
   DRAFT: "ai_draft",
   BROADCAST_RECIPIENTS: "broadcast_recipients",
   FREE_BROADCAST: "free_broadcast",
+  TRANSCRIPTION_SECONDS: "transcription_seconds",
 } as const;

@@ -126,6 +126,14 @@ model Workspace {
   hoursOpen           String            @default("08:00")
   hoursClose          String            @default("20:00")
 
+  /// The seller's OWN Paystack secret key (AES-256-GCM), for payment links sent to their customers.
+  /// Separate from DakyXTech's key: customer money goes to the seller, never through us.
+  merchantPaystackKeyEnc String?
+  /// Morning email to the owner: yesterday's leads, orders and waiting replies.
+  dailySummaryEmail   Boolean           @default(true)
+  /// "2026-10-24" of the last summary sent, so a restart never sends twice.
+  dailySummarySentOn  String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -239,6 +247,10 @@ model Message {
   autoRuleId     String?
   /// "app" when the seller typed it in their phone's WhatsApp Business app (Coexistence echo).
   origin         String        @default("api")
+  /// Speech-to-text of a voice note (Pro). The AI reads this in place of "[audio]".
+  transcript     String?
+  /// Length of the transcribed audio, counted against the plan's monthly minutes.
+  audioSeconds   Int?
   timestamp      DateTime      @default(now())
 
   @@index([conversationId, timestamp])
@@ -275,6 +287,12 @@ model Order {
   totalGhs         Decimal?     @db.Decimal(12, 2)
   stage            Stage        @default(NEW)
   notes            String?
+  /// Payment link from the seller's own Paystack (see services/payLinks.ts).
+  paymentReference String?      @unique
+  paymentUrl       String?
+  paymentPesewas   Int?
+  paidAt           DateTime?
+  paymentChannel   String?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 

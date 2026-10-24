@@ -1,6 +1,6 @@
 # DakyX WhatsApp CRM
 
-A WhatsApp inbox for Ghanaian sellers, part of the DakyXTech ecosystem, at **whatsappcrm.dakyx.com**. It connects a WhatsApp Business number, and AI sorts every chat (new lead, order, inquiry, complaint, follow-up, not business). It pulls orders out of conversations and drafts replies that the seller approves with one tap. It also covers contacts, broadcast lists and template broadcasts, keyword/away/welcome auto-replies, and Paystack billing on two plans (GHS 50 Starter, GHS 150 Pro).
+A WhatsApp inbox for Ghanaian sellers, part of the DakyXTech ecosystem, at **whatsappcrm.dakyx.com**. It connects a WhatsApp Business number, and AI sorts every chat (new lead, order, inquiry, complaint, follow-up, not business). It pulls orders out of conversations and drafts replies that the seller approves with one tap. It also covers contacts, broadcast lists and template broadcasts, keyword/away/welcome auto-replies, voice-note transcription, payment links in chat, analytics, a morning summary, and Paystack billing on two plans (GHS 50 Starter, GHS 150 Pro).
 
 **Read the plan first:** [`docs/PLAN.md`](docs/PLAN.md) ([PDF](docs/DakyX-WhatsApp-CRM-Plan.pdf)). It explains what WhatsApp does and doesn't allow, and why the product is shaped this way.
 
@@ -43,7 +43,9 @@ Without `ANTHROPIC_API_KEY`, everything works except AI sorting and drafts. With
    - Meta app with the WhatsApp product; `META_APP_ID`, `META_APP_SECRET`.
    - Webhook callback `https://whatsappcrm.dakyx.com/webhooks/whatsapp`, verify token = `WHATSAPP_VERIFY_TOKEN`. Subscribe to the fields `messages`, `smb_message_echoes`, `history` and `smb_app_state_sync` (the last three are for Coexistence numbers).
    - Facebook Login for Business configuration for Embedded Signup → `META_CONFIG_ID`. Until App Review and Tech Provider status are approved, sellers use chat-export mode, and you can test with Meta's test number through **Settings → Advanced: API token**.
-5. **AI**: `ANTHROPIC_API_KEY`. `AI_TRIAGE_MODEL` / `AI_DRAFT_MODEL` default to `claude-opus-5-5`. For margin on the Starter plan, consider `claude-haiku-5-5` for triage (see the plan, section 4.1).
+5. **Voice notes (Pro)**: `TRANSCRIBE_API_KEY` from Deepgram (default) or OpenAI (`TRANSCRIBE_PROVIDER=openai`). Without it, voice notes still play in the inbox; they just aren't turned into text.
+6. **Morning summary email**: `SMTP_URL` + `MAIL_FROM` (a dakyx.com mailbox works). Without them, the summary still shows on the dashboard.
+7. **AI**: `ANTHROPIC_API_KEY`. `AI_TRIAGE_MODEL` / `AI_DRAFT_MODEL` default to `claude-opus-5-5`. For margin on the Starter plan, consider `claude-haiku-5-5` for triage (see the plan, section 4.1).
 
 ## Rules the code depends on
 
@@ -53,3 +55,4 @@ Without `ANTHROPIC_API_KEY`, everything works except AI sorting and drafts. With
 - **Pesewas everywhere money crosses Paystack**, through `toPesewas`.
 - **Meta's message fees come from the wallet, never the plan.** Plan limits on broadcasts protect the number's quality rating.
 - **Phone numbers are identities.** `normalizePhone` refuses rather than guesses.
+- **Payment links use the seller's own Paystack key**, never DakyXTech's, so customer money never passes through us. A link is only put in the reply box; the seller sends it. Payment is confirmed with Paystack (seller's webhook at `/webhooks/paystack-merchant/<workspaceId>`, or the 10-minute re-check), never from a redirect.

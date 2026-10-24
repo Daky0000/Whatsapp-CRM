@@ -9,6 +9,7 @@ import { waLink } from "../lib/phone.js";
 import { scanWorkspace, triageConversation } from "../services/triage.js";
 import { sendReply, windowOpen } from "../services/sender.js";
 import { billingOf } from "../services/usage.js";
+import { transcribeMessage } from "../services/voice.js";
 
 export const inboxRouter = Router();
 
@@ -123,6 +124,24 @@ inboxRouter.post(
     const { active } = await billingOf(ws(req));
     if (!active) throw new HttpError(402, "Your subscription has ended. Renew under Billing to use AI.");
     res.json(await scanWorkspace(ws(req)));
+  }),
+);
+
+inboxRouter.post(
+  "/messages/:id/transcribe",
+  h(async (req, res) => {
+    const message = await prisma.message.findFirst({ where: { id: param(req, "id"), conversation: { workspaceId: ws(req) } }, select: { id: true } });
+    if (!message) throw new HttpError(404, "Message not found.");
+    const outcome = await transcribeMessage(message.id);
+    const refusals: Partial<Record<typeof outcome, [number, string]>> = {
+      not_on_plan: [402, "Voice-note transcription is on the Pro plan."],
+      minutes_used: [402, "You've used this month's transcription minutes."],
+      off: [503, "Voice-note transcription isn't switched on for this server yet."],
+      not_audio: [400, "That message isn't a voice note."],
+    };
+    const refusal = refusals[outcome];
+    if (refusal) throw new HttpError(refusal[0], refusal[1]);
+    res.json(await prisma.message.findUnique({ where: { id: message.id }, select: { transcript: true, audioSeconds: true } }));
   }),
 );
 

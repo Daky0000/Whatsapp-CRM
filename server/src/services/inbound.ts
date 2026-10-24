@@ -5,6 +5,7 @@ import { limitsFor } from "../lib/plans.js";
 import { normalizePhone } from "../lib/phone.js";
 import { runAutoReplies } from "./autoReply.js";
 import { scheduleTriage } from "./triage.js";
+import { transcribeMessage } from "./voice.js";
 
 /**
  * Everything that arrives from Meta's webhook ends up here: live customer
@@ -107,8 +108,9 @@ export async function recordMessage(input: RecordInput) {
   }
 
   const inbound = input.direction === "INBOUND";
+  let messageId: string;
   try {
-    await prisma.message.create({
+    ({ id: messageId } = await prisma.message.create({
       data: {
         conversationId: convo.id,
         direction: input.direction,
@@ -120,7 +122,8 @@ export async function recordMessage(input: RecordInput) {
         origin: input.origin ?? "api",
         timestamp: input.timestamp,
       },
-    });
+      select: { id: true },
+    }));
   } catch (err) {
     // Two deliveries of the same webhook racing each other: the unique index decides.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return null;
@@ -143,7 +146,7 @@ export async function recordMessage(input: RecordInput) {
     else if (START.test(input.body)) await prisma.contact.update({ where: { id: contact.id }, data: { optedOut: false, optedIn: true } });
   }
 
-  return { contact, conversation: convo, isFirstMessage };
+  return { contact, conversation: convo, isFirstMessage, messageId };
 }
 
 interface ChangeValue {
@@ -242,7 +245,15 @@ async function handleLiveMessages(workspaceId: string, value: ChangeValue) {
         workspaceId, conversationId: recorded.conversation.id, text: body, isFirstMessage: recorded.isFirstMessage,
       }).catch((err) => console.warn(`[auto-reply] ${recorded.conversation.id}: ${(err as Error).message}`));
     }
-    if (recorded.conversation.category !== "NOT_BUSINESS" || recorded.isFirstMessage) scheduleTriage(recorded.conversation.id);
+    const triage = () => {
+      if (recorded.conversation.category !== "NOT_BUSINESS" || recorded.isFirstMessage) scheduleTriage(recorded.conversation.id);
+    };
+    if (m.type === "audio" && recorded.messageId) {
+      // Transcribe first so the AI reads what was said rather than "[audio]".
+      void transcribeMessage(recorded.messageId)
+        .catch((err) => console.warn(`[voice] ${recorded.messageId}: ${(err as Error).message}`))
+        .finally(triage);
+    } else triage();
   }
 }
 

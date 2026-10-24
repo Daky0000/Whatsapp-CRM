@@ -3,6 +3,8 @@ import { isActive, limitsFor } from "../lib/plans.js";
 import { applyPayment, expireLapsed } from "./billing.js";
 import { sendBroadcast } from "./broadcasts.js";
 import { triageConversation } from "./triage.js";
+import { reconcileOrderPayments } from "./payLinks.js";
+import { sendDailySummaries } from "./dailySummary.js";
 
 /**
  * In-process timers. One server instance is assumed (Railway, one replica);
@@ -16,9 +18,11 @@ export function startScheduler() {
   every(60_000, "broadcasts", runDueBroadcasts);
   every(10 * 60_000, "billing", async () => {
     await reconcilePendingPayments();
+    await reconcileOrderPayments();
     await expireLapsed();
   });
   every(60 * 60_000, "follow-ups", queueFollowUps);
+  every(60 * 60_000, "daily-summary", () => sendDailySummaries());
 }
 
 /**

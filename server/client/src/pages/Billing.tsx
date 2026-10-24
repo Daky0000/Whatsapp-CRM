@@ -24,9 +24,11 @@ const FEATURES: Array<[string, string, (v: Limits[string]) => string]> = [
   ["freeBroadcastCredits", "Free broadcast messages / month", (v) => String(v)],
   ["autoReplyRules", "Auto-reply rules", (v) => (v === null ? "Unlimited" : String(v))],
   ["products", "Products the AI knows", (v) => (v === null ? "Unlimited" : String(v))],
+  ["transcriptionMinutes", "Voice notes turned into text", (v) => (v ? `${v} min/month` : "—")],
   ["scheduledBroadcasts", "Scheduled broadcasts", (v) => (v ? "✓" : "—")],
   ["followUps", "AI follow-up reminders", (v) => (v ? "✓" : "—")],
   ["orderPipeline", "Order pipeline", (v) => (v ? "✓" : "View only")],
+  ["analyticsExport", "Analytics", (v) => (v ? "✓ + CSV export" : "✓")],
 ];
 
 export default function BillingPage() {

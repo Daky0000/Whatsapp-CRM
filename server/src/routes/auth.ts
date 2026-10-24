@@ -89,6 +89,7 @@ authRouter.get(
         replyLanguage: workspace.replyLanguage,
         hoursOpen: workspace.hoursOpen,
         hoursClose: workspace.hoursClose,
+        dailySummaryEmail: workspace.dailySummaryEmail,
       },
       billing: { active: billing.active, limits: serializeLimits(billing.limits), usage: { triage, drafts } },
       connection: connection
