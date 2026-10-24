@@ -55,7 +55,7 @@ Broadcasts also need **opt-in**. Sending marketing to people who never agreed ge
 
 ### 2.4 "Even make audio if possible"
 
-- **Voice notes in (yes, Phase 1):** sellers here receive lots of voice notes. We download them and **transcribe them into text**, so the AI can sort them like any other message. We use a speech-to-text provider, because Claude does not take audio input. Note: Twi, Ga and Ewe transcription quality is still limited; English and Pidgin are fine.
+- **Voice notes in:** Phase 1 lets sellers play voice notes inside the inbox. Phase 2 **transcribes them into text**, so the AI can sort them like any other message. We use a speech-to-text provider, because Claude does not take audio input. Note: Twi, Ga and Ewe transcription quality is still limited; English and Pidgin are fine.
 - **Voice calls (Phase 3):** Meta has a WhatsApp Business **Calling API**. Support for numbers on Coexistence and for Ghana must be confirmed, so it is planned for later rather than promised now.
 
 ## 3. Features
@@ -179,7 +179,13 @@ Workspace (plan, trial, limits) · User · WhatsAppConnection · Contact · Conv
 | **2. Selling tools** | Pipeline board, follow-up reminders, message wallet top-ups, voice-note transcription, team seats, daily summary email, analytics, payment links in chat | Weeks 7–12 |
 | **3. Reach** | PWA, then a mobile app; Calling API; several numbers per workspace; Twi/Pidgin tuning; integration with app.dakyx.com single sign-on | Month 4+ |
 
-## 8. Risks and how we handle them
+## 8. Found while building
+
+- **Paystack has one webhook URL per account**, and the shared account's URL belongs to DakyXTech OS. One-off payments (MoMo or card) don't need it: the app verifies on return from checkout and re-checks pending payments every 10 minutes. **Automatic card renewals do.** The OS must forward WhatsApp CRM events to `whatsappcrm.dakyx.com/webhooks/paystack`; the README has the exact rule. The alternative is a separate Paystack account (or subaccount) for this product.
+- **Follow-ups must go out inside the 24-hour window.** A nudge two days later can only be a paid template. So the follow-up reminder fires 18–23 hours after the customer's last message.
+- **Chat exports carry no message ids.** The importer fingerprints each line, so importing the same file twice doesn't duplicate it.
+
+## 9. Risks and how we handle them
 
 | Risk | Handling |
 |---|---|
@@ -189,7 +195,7 @@ Workspace (plan, trial, limits) · User · WhatsAppConnection · Contact · Conv
 | Meta fees eat the subscription | The message wallet pays them, never the plan. |
 | Customers' privacy | Data stays in each seller's workspace, with export and delete on request. A privacy policy covers the Ghana Data Protection Act 2012 (Act 843). |
 
-## 9. Decisions I need from you
+## 10. Decisions I need from you
 
 1. Will DakyXTech apply as a **Meta Tech Provider** (cheaper long-term) or start through a **BSP** like 360dialog (faster)?
 2. Confirm the **wallet margin** (suggested 15%) and the **free trial** (7 days of Pro).

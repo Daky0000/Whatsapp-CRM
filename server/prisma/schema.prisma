@@ -1,0 +1,409 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlanId {
+  STARTER
+  PRO
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  EXPIRED
+}
+
+enum Role {
+  OWNER
+  AGENT
+}
+
+/// CLOUD: Meta Cloud API (Embedded Signup / Coexistence, or a pasted token).
+/// IMPORT: no API; chats arrive as uploaded exports and replies go out as wa.me links.
+enum ConnectionMode {
+  CLOUD
+  IMPORT
+}
+
+enum Category {
+  UNSORTED
+  NEW_LEAD
+  ORDER
+  INQUIRY
+  COMPLAINT
+  FOLLOW_UP
+  NOT_BUSINESS
+}
+
+enum Stage {
+  NEW
+  NEGOTIATING
+  ORDERED
+  PAID
+  DELIVERED
+  LOST
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  RECEIVED
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum DraftStatus {
+  PENDING
+  APPROVED
+  SENT
+  REJECTED
+  /// Approved for a wa.me hand-send; waits for the seller to say they sent it.
+  READY_TO_HAND_SEND
+}
+
+enum DraftKind {
+  REPLY
+  FOLLOW_UP
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum AutoReplyTrigger {
+  KEYWORD
+  AWAY
+  WELCOME
+}
+
+enum PaymentKind {
+  SUBSCRIPTION
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model Workspace {
+  id                 String             @id @default(cuid())
+  name               String
+  plan               PlanId             @default(PRO)
+  status             SubscriptionStatus @default(TRIALING)
+  trialEndsAt        DateTime?
+  currentPeriodEnd   DateTime?
+  billingEmail       String?
+  paystackCustomer   String?
+  paystackSubCode    String?
+  cancelAtPeriodEnd  Boolean            @default(false)
+  /// Message wallet balance in pesewas. Pays Meta's per-message fees.
+  walletPesewas      Int                @default(0)
+
+  // What the AI knows about the business.
+  businessDescription String?
+  brandVoice          String            @default("friendly")
+  replyLanguage       String            @default("English")
+  /// Business hours in Africa/Accra (UTC+0), "08:00".."20:00". Outside them the AWAY rule fires.
+  hoursOpen           String            @default("08:00")
+  hoursClose          String            @default("20:00")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  connection     WhatsAppConnection?
+  contacts       Contact[]
+  conversations  Conversation[]
+  drafts         Draft[]
+  orders         Order[]
+  products       Product[]
+  knowledge      KnowledgeItem[]
+  lists          BroadcastList[]
+  broadcasts     Broadcast[]
+  autoReplies    AutoReplyRule[]
+  payments       Payment[]
+  walletEntries  WalletTransaction[]
+  usage          UsageCounter[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(OWNER)
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+model WhatsAppConnection {
+  id                String         @id @default(cuid())
+  workspaceId       String         @unique
+  workspace         Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  mode              ConnectionMode
+  phoneNumberId     String?        @unique
+  wabaId            String?
+  displayPhone      String?
+  verifiedName      String?
+  /// AES-256-GCM ciphertext; see lib/crypto.ts. Never returned to the browser.
+  accessTokenEnc    String?
+  coexistence       Boolean        @default(false)
+  historySyncedAt   DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Contact {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// E.164 without "+", e.g. 233241234567. The identity of a contact.
+  phone       String
+  name        String?
+  labels      String[]  @default([])
+  notes       String?
+  optedIn     Boolean   @default(false)
+  optedOut    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  conversations Conversation[]
+  listMembers   BroadcastListMember[]
+  recipients    BroadcastRecipient[]
+  orders        Order[]
+
+  @@unique([workspaceId, phone])
+}
+
+model Conversation {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contactId      String
+  contact        Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  category       Category  @default(UNSORTED)
+  stage          Stage     @default(NEW)
+  aiSummary      String?
+  urgency        Int?
+  /// Set when new messages arrive after the last AI pass, so a scan knows what to redo.
+  needsTriage    Boolean   @default(true)
+  triagedAt      DateTime?
+  lastMessageAt  DateTime?
+  /// The 24-hour customer-service window is measured from this.
+  lastInboundAt  DateTime?
+  unread         Int       @default(0)
+  source         String    @default("live")
+  createdAt      DateTime  @default(now())
+
+  messages Message[]
+  drafts   Draft[]
+  orders   Order[]
+
+  @@unique([workspaceId, contactId])
+  @@index([workspaceId, category, lastMessageAt])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      Direction
+  type           String        @default("text")
+  body           String?
+  mediaId        String?
+  /// Meta's message id (wamid…). Unique so a redelivered webhook is a no-op.
+  waMessageId    String?       @unique
+  status         MessageStatus @default(RECEIVED)
+  error          String?
+  sentByUserId   String?
+  autoRuleId     String?
+  /// "app" when the seller typed it in their phone's WhatsApp Business app (Coexistence echo).
+  origin         String        @default("api")
+  timestamp      DateTime      @default(now())
+
+  @@index([conversationId, timestamp])
+}
+
+model Draft {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  kind           DraftKind    @default(REPLY)
+  body           String
+  status         DraftStatus  @default(PENDING)
+  reason         String?
+  decidedByUserId String?
+  createdAt      DateTime     @default(now())
+  decidedAt      DateTime?
+
+  @@index([workspaceId, status])
+}
+
+model Order {
+  id               String       @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversationId   String
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contactId        String
+  contact          Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  /// [{ name, quantity, variant, unitPrice }]
+  items            Json
+  deliveryLocation String?
+  totalGhs         Decimal?     @db.Decimal(12, 2)
+  stage            Stage        @default(NEW)
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([conversationId])
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  priceGhs    Decimal   @db.Decimal(12, 2)
+  description String?
+  inStock     Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+}
+
+model KnowledgeItem {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  question    String
+  answer      String
+  createdAt   DateTime  @default(now())
+}
+
+model BroadcastList {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  createdAt   DateTime  @default(now())
+
+  members    BroadcastListMember[]
+  broadcasts Broadcast[]
+}
+
+model BroadcastListMember {
+  listId    String
+  list      BroadcastList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([listId, contactId])
+}
+
+model Broadcast {
+  id             String          @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  listId         String?
+  list           BroadcastList?  @relation(fields: [listId], references: [id], onDelete: SetNull)
+  name           String
+  templateName   String
+  templateLang   String          @default("en")
+  /// Body variables in order. "{{name}}" is replaced with the contact's first name.
+  variables      String[]        @default([])
+  status         BroadcastStatus @default(DRAFT)
+  scheduledAt    DateTime?
+  costPesewas    Int             @default(0)
+  createdAt      DateTime        @default(now())
+  sentAt         DateTime?
+
+  recipients BroadcastRecipient[]
+}
+
+model BroadcastRecipient {
+  id          String        @id @default(cuid())
+  broadcastId String
+  broadcast   Broadcast     @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  status      MessageStatus @default(QUEUED)
+  waMessageId String?       @unique
+  error       String?
+
+  @@unique([broadcastId, contactId])
+}
+
+model AutoReplyRule {
+  id          String           @id @default(cuid())
+  workspaceId String
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  trigger     AutoReplyTrigger
+  keywords    String[]         @default([])
+  reply       String
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reference   String        @unique
+  kind        PaymentKind
+  plan        PlanId?
+  months      Int?
+  amountPesewas Int
+  status      PaymentStatus @default(PENDING)
+  channel     String?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+}
+
+model WalletTransaction {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Positive for top-ups, negative for spend.
+  amountPesewas Int
+  description   String
+  reference     String?   @unique
+  createdAt     DateTime  @default(now())
+}
+
+/// One row per workspace, metric and billing month ("2026-10").
+model UsageCounter {
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  metric      String
+  period      String
+  count       Int       @default(0)
+
+  @@id([workspaceId, metric, period])
+}
+
+/// Process-wide settings that are not secrets (e.g. Paystack plan codes created on first use).
+model AppSetting {
+  key   String @id
+  value String
+}
