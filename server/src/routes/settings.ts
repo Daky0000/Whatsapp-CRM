@@ -38,7 +38,7 @@ settingsRouter.get(
   h(async (req, res) => {
     const users = await prisma.user.findMany({
       where: { workspaceId: ws(req) },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     });
     res.json({ users, seats: (await billingOf(ws(req))).limits.seats });

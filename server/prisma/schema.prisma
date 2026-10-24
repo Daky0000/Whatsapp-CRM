@@ -156,12 +156,52 @@ model Workspace {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
+  /// E.164 without "+", verified by a one-time code at sign-up. Signs in like the email does.
+  phone        String?  @unique
+  phoneVerifiedAt DateTime?
   name         String
   passwordHash String
+  /// Sessions issued before this are refused, so a reset signs out every other device.
+  passwordChangedAt DateTime?
   role         Role     @default(OWNER)
   workspaceId  String
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
+
+  resetTokens PasswordResetToken[]
+}
+
+enum OtpChannel {
+  SMS
+  VOICE
+  WHATSAPP
+}
+
+/// One live code request per phone and purpose. For SMS and VOICE, Vynfy holds
+/// the code itself and this row only records what was asked for; for WHATSAPP
+/// we generate the code, so only its hash is kept here.
+model OtpChallenge {
+  id        String     @id @default(cuid())
+  phone     String
+  purpose   String
+  channel   OtpChannel
+  codeHash  String?
+  attempts  Int        @default(0)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  @@unique([phone, purpose])
+}
+
+/// Email password reset. Only the SHA-256 of the token is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 model WhatsAppConnection {

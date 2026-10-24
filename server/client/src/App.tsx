@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api, type Me } from "./api";
 import AnalyticsPage from "./pages/Analytics";
-import AuthPage from "./pages/Auth";
+import AuthPage, { ResetFromLink } from "./pages/Auth";
 import BillingPage from "./pages/Billing";
 import BroadcastsPage from "./pages/Broadcasts";
 import ContactsPage from "./pages/Contacts";
@@ -40,6 +40,7 @@ export default function App() {
 
   // Where a seller's customer lands after paying a link. Public, and claims nothing it can't know.
   if (window.location.pathname === "/paid") return <PaidPage />;
+  if (window.location.pathname === "/reset") return <ToastProvider><ResetFromLink /></ToastProvider>;
   if (me === undefined) return <div className="grid h-screen place-items-center text-sm text-slate-400">Loading…</div>;
 
   return (

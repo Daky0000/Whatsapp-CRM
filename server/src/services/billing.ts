@@ -6,7 +6,9 @@ import { HttpError } from "../lib/errors.js";
 import { createPlan, disableSubscription, initializeTransaction, toPesewas, verifyTransaction } from "../lib/paystack.js";
 import { PLANS, priceFor } from "../lib/plans.js";
 
-const callbackUrl = () => process.env.PAYSTACK_CALLBACK_URL || `${config.publicUrl}/billing`;
+// Deliberately NOT the OS's PAYSTACK_CALLBACK_URL: the Paystack keys are shared with the OS, but its
+// return address points at os.dakyx.com, and a customer must land back on this product.
+const callbackUrl = () => `${config.publicUrl}/billing`;
 
 function newReference(kind: "sub" | "wal") {
   return `wcrm-${kind}-${Date.now().toString(36)}-${randomBytes(6).toString("hex")}`;

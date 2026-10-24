@@ -56,7 +56,7 @@ export const STAGES = ["NEW", "NEGOTIATING", "ORDERED", "PAID", "DELIVERED", "LO
 export type Stage = (typeof STAGES)[number];
 
 export interface Me {
-  user: { id: string; email: string; name: string; role: "OWNER" | "AGENT" };
+  user: { id: string; email: string; name: string; role: "OWNER" | "AGENT"; phone: string | null };
   workspace: {
     id: string;
     name: string;

@@ -108,6 +108,32 @@ export async function sendTemplate(
   return id;
 }
 
+/**
+ * A one-time code through an AUTHENTICATION template. Meta's copy-code
+ * templates take the code twice: once for the body, once for the button.
+ */
+export async function sendAuthCode(token: string, phoneNumberId: string, to: string, template: { name: string; language: string }, code: string): Promise<string> {
+  const data = await graph<SendResult>(token, `/${phoneNumberId}/messages`, {
+    method: "POST",
+    body: {
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name: template.name,
+        language: { code: template.language },
+        components: [
+          { type: "body", parameters: [{ type: "text", text: code }] },
+          { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: code }] },
+        ],
+      },
+    },
+  });
+  const id = data.messages?.[0]?.id;
+  if (!id) throw new WhatsAppError("WhatsApp accepted the code but returned no id.");
+  return id;
+}
+
 export interface TemplateSummary {
   name: string;
   language: string;

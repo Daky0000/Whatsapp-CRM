@@ -25,29 +25,31 @@ export function clearSession(res: Response) {
   res.clearCookie(SESSION_COOKIE, { path: "/" });
 }
 
-export function readSession(token: unknown): string | null {
+export function readSession(token: unknown): { userId: string; issuedAt: number } | null {
   if (typeof token !== "string") return null;
   const [userId, expires, signature] = token.split(".");
   if (!userId || !expires || !signature) return null;
   if (!safeEqualHex(signature, hmacHex("sha256", config.sessionSecret(), `${userId}.${expires}`))) return null;
   if (Number(expires) < Date.now()) return null;
-  return userId;
+  return { userId, issuedAt: Number(expires) - SESSION_DAYS * 86_400_000 };
 }
 
 export interface AuthedRequest extends Request {
-  user: { id: string; email: string; name: string; role: "OWNER" | "AGENT"; workspaceId: string };
+  user: { id: string; email: string; name: string; role: "OWNER" | "AGENT"; workspaceId: string; phone: string | null };
 }
 
 export async function requireUser(req: Request, _res: Response, next: NextFunction) {
   try {
-    const userId = readSession(req.cookies?.[SESSION_COOKIE]);
-    if (!userId) throw new HttpError(401, "Please sign in.");
+    const session = readSession(req.cookies?.[SESSION_COOKIE]);
+    if (!session) throw new HttpError(401, "Please sign in.");
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, name: true, role: true, workspaceId: true },
+      where: { id: session.userId },
+      select: { id: true, email: true, name: true, role: true, workspaceId: true, phone: true, passwordChangedAt: true },
     });
-    if (!user) throw new HttpError(401, "Please sign in.");
-    (req as AuthedRequest).user = user;
+    // A password reset ends every session issued before it.
+    if (!user || (user.passwordChangedAt && session.issuedAt < user.passwordChangedAt.getTime())) throw new HttpError(401, "Please sign in.");
+    const { passwordChangedAt: _, ...rest } = user;
+    (req as AuthedRequest).user = rest;
     next();
   } catch (err) {
     next(err);
