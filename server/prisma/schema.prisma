@@ -159,8 +159,12 @@ model User {
   /// E.164 without "+", verified by a one-time code at sign-up. Signs in like the email does.
   phone        String?  @unique
   phoneVerifiedAt DateTime?
+  /// Optional sign-in name, stored lowercase so "DakyXTech" and "dakyxtech" are one account.
+  username     String?  @unique
   name         String
   passwordHash String
+  /// DakyXTech staff: sees every workspace on the admin page. Only ever set by services/owner.ts.
+  platformAdmin Boolean @default(false)
   /// Sessions issued before this are refused, so a reset signs out every other device.
   passwordChangedAt DateTime?
   role         Role     @default(OWNER)

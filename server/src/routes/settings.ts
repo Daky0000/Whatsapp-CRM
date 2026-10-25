@@ -48,7 +48,7 @@ settingsRouter.get(
 const Member = z.object({
   name: z.string().trim().min(2).max(80),
   email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8).max(200),
+  password: z.string().min(8, "use at least 8 characters").max(200),
 });
 
 settingsRouter.post(

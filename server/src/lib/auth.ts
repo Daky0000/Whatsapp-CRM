@@ -35,7 +35,16 @@ export function readSession(token: unknown): { userId: string; issuedAt: number 
 }
 
 export interface AuthedRequest extends Request {
-  user: { id: string; email: string; name: string; role: "OWNER" | "AGENT"; workspaceId: string; phone: string | null };
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: "OWNER" | "AGENT";
+    workspaceId: string;
+    phone: string | null;
+    username: string | null;
+    platformAdmin: boolean;
+  };
 }
 
 export async function requireUser(req: Request, _res: Response, next: NextFunction) {
@@ -44,7 +53,7 @@ export async function requireUser(req: Request, _res: Response, next: NextFuncti
     if (!session) throw new HttpError(401, "Please sign in.");
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { id: true, email: true, name: true, role: true, workspaceId: true, phone: true, passwordChangedAt: true },
+      select: { id: true, email: true, name: true, role: true, workspaceId: true, phone: true, username: true, platformAdmin: true, passwordChangedAt: true },
     });
     // A password reset ends every session issued before it.
     if (!user || (user.passwordChangedAt && session.issuedAt < user.passwordChangedAt.getTime())) throw new HttpError(401, "Please sign in.");
@@ -58,6 +67,11 @@ export async function requireUser(req: Request, _res: Response, next: NextFuncti
 
 export function requireOwner(req: Request, _res: Response, next: NextFunction) {
   if ((req as AuthedRequest).user?.role !== "OWNER") return next(new HttpError(403, "Only the workspace owner can do that."));
+  next();
+}
+
+export function requirePlatformAdmin(req: Request, _res: Response, next: NextFunction) {
+  if (!(req as AuthedRequest).user?.platformAdmin) return next(new HttpError(404, "Not found."));
   next();
 }
 

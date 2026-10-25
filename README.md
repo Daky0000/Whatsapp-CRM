@@ -47,11 +47,12 @@ Without `ANTHROPIC_API_KEY`, everything works except AI sorting and drafts. With
    - Facebook Login for Business configuration for Embedded Signup → `META_CONFIG_ID`. Until App Review and Tech Provider status are approved, sellers use chat-export mode, and you can test with Meta's test number through **Settings → Advanced: API token**.
 5. **Email (shared with the OS)**: the OS's mail settings, under the same names: `MAIL_TRANSPORT` and either the `SMTP_*` set or the Hostinger token set (`HOSTINGER_MAIL_TOKEN`, `HOSTINGER_MAILBOX_ID`, `HOSTINGER_MAILBOX_ADDRESS`), plus `MAIL_FROM_NAME` / `MAIL_FROM_EMAIL`. Used for password-reset links and the morning summary; without them, both fall back to phone codes and the dashboard.
 6. **Phone codes**: sign-up verifies the seller's phone (which also limits free trials to one per number), sign-in takes an email or a phone, and forgotten passwords go by code or email link.
-   - **SMS and voice call: Vynfy, as in laluxury (nobleenclave.com)**: `VYNFY_API_KEY`, `VYNFY_SENDER_ID`. Register **"DakyX"** as a sender ID with Vynfy first; otherwise texts show laluxury's sender name, or are refused.
+   - **SMS and voice call: Vynfy, as in laluxury (nobleenclave.com)**: `VYNFY_API_KEY`, and `VYNFY_SENDER_ID=DakyXTech` (the registered sender ID, and the default).
    - **WhatsApp: the OS's own number**: `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` (shared with the OS), plus `WHATSAPP_OTP_TEMPLATE`, the name of an approved **Authentication** template with a copy-code button on that number. Vynfy has no WhatsApp delivery, so this channel's codes are made and checked here (hashed, 5 minutes, 3 tries). It only appears once the template is set.
    - In production, sign-up is refused until at least one channel is configured.
 7. **Voice notes (Pro)**: `TRANSCRIBE_API_KEY` from Deepgram (default) or OpenAI (`TRANSCRIBE_PROVIDER=openai`). Without it, voice notes still play in the inbox; they just aren't turned into text.
-8. **AI (shared with the OS)**: `ANTHROPIC_API_KEY`. `AI_TRIAGE_MODEL` / `AI_DRAFT_MODEL` default to `claude-opus-5-5`. For margin on the Starter plan, consider `claude-haiku-5-5` for triage (see the plan, section 4.1).
+8. **Owner account**: set `OWNER_EMAIL`, `OWNER_PASSWORD`, `OWNER_NAME`, `OWNER_USERNAME` and `OWNER_PHONE` in Railway (never in this public repo). On start-up the server creates that account once: free Pro with no end date, and **All workspaces** in the menu to see every seller and extend anyone's access. The password is only used at creation; change it afterwards under Settings → Your password, and later restarts leave it alone. The owner signs in with the username, phone or email.
+9. **AI (shared with the OS)**: `ANTHROPIC_API_KEY`. `AI_TRIAGE_MODEL` / `AI_DRAFT_MODEL` default to `claude-opus-5-5`. For margin on the Starter plan, consider `claude-haiku-5-5` for triage (see the plan, section 4.1).
 
 ## Rules the code depends on
 

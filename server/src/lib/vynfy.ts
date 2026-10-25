@@ -38,7 +38,7 @@ function credentials() {
   const apiKey = process.env.VYNFY_API_KEY?.trim();
   if (!apiKey) return null;
   // Must exactly match a sender ID Vynfy approved for the account (max 11 characters).
-  return { apiKey, senderId: (process.env.VYNFY_SENDER_ID?.trim() || "DakyX").slice(0, 11) };
+  return { apiKey, senderId: (process.env.VYNFY_SENDER_ID?.trim() || "DakyXTech").slice(0, 11) };
 }
 
 export const vynfyConfigured = () => credentials() !== null;
@@ -118,7 +118,7 @@ export async function vynfySendOtp(phone: string, medium: "sms" | "voice"): Prom
   if (!creds) return { ok: false, code: "NOT_CONFIGURED", fatal: true, message: "Phone verification isn't switched on yet." };
 
   // `%otp_code%` is required, and the whole message must fit 160 characters.
-  const message = `DakyX WhatsApp CRM: your code is %otp_code%. It expires in ${OTP_EXPIRY_MINUTES} minutes. Don't share it with anyone.`;
+  const message = `DakyXTech WhatsApp CRM: your code is %otp_code%. It expires in ${OTP_EXPIRY_MINUTES} minutes. Don't share it with anyone.`;
   const payload = {
     number: forGateway(number),
     message: message.slice(0, 160),

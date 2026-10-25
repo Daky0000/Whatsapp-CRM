@@ -12,6 +12,7 @@ import { normalizePhone } from "../lib/phone.js";
 import { TRIAL_DAYS } from "../lib/plans.js";
 import { hit, MINUTE } from "../lib/rateLimit.js";
 import { anyOtpChannel, checkCode, otpChannels, sendCode } from "../services/otp.js";
+import { normalizeUsername } from "../services/owner.js";
 import { METRIC, billingOf, usageCount } from "../services/usage.js";
 
 export const authRouter = Router();
@@ -52,7 +53,7 @@ const Signup = z.object({
   email: z.string().trim().toLowerCase().email(),
   phone: z.string().min(6).max(30),
   code: z.string().trim().max(10).optional(),
-  password: z.string().min(8).max(200),
+  password: z.string().min(8, "use at least 8 characters").max(200),
 });
 
 authRouter.post(
@@ -96,10 +97,12 @@ authRouter.post(
   }),
 );
 
-/** Email or phone, in one field. */
+/** Email, phone or username, in one field. Usernames start with a letter, so they never read as a phone number. */
 async function findByIdentifier(identifier: string) {
   const value = identifier.trim();
   if (value.includes("@")) return prisma.user.findUnique({ where: { email: value.toLowerCase() } });
+  const username = normalizeUsername(value);
+  if (username) return prisma.user.findUnique({ where: { username } });
   const phone = normalizePhone(value);
   return phone ? prisma.user.findUnique({ where: { phone } }) : null;
 }
@@ -113,7 +116,7 @@ authRouter.post(
     hit(`login:ip:${ip(req)}`, 20, 15 * MINUTE);
     hit(`login:id:${body.identifier.toLowerCase()}`, 8, 15 * MINUTE, "Too many tries for this account. Wait 15 minutes or reset your password.");
     const user = await findByIdentifier(body.identifier);
-    if (!user || !(await verifyPassword(body.password, user.passwordHash))) throw new HttpError(401, "Wrong email, phone or password.");
+    if (!user || !(await verifyPassword(body.password, user.passwordHash))) throw new HttpError(401, "Wrong sign-in details or password.");
     issueSession(res, user.id);
     res.json({ ok: true });
   }),
@@ -158,10 +161,25 @@ async function setPassword(userId: string, password: string) {
   await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(password), passwordChangedAt: new Date() } });
 }
 
+/** Signed in, knows the current password: change it, end every other session, keep this one. */
+authRouter.post(
+  "/password",
+  requireUser,
+  h(async (req, res) => {
+    const body = parse(z.object({ current: z.string().min(1).max(200), password: z.string().min(8, "use at least 8 characters").max(200) }), req.body);
+    hit(`password:${me(req).id}`, 5, 15 * MINUTE);
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: me(req).id } });
+    if (!(await verifyPassword(body.current, user.passwordHash))) throw new HttpError(400, "Your current password isn't right.");
+    await setPassword(user.id, body.password);
+    issueSession(res, user.id);
+    res.json({ ok: true });
+  }),
+);
+
 authRouter.post(
   "/reset/phone",
   h(async (req, res) => {
-    const body = parse(z.object({ phone: z.string().min(6).max(30), code: z.string().trim().max(10), password: z.string().min(8).max(200) }), req.body);
+    const body = parse(z.object({ phone: z.string().min(6).max(30), code: z.string().trim().max(10), password: z.string().min(8, "use at least 8 characters").max(200) }), req.body);
     hit(`reset-verify:ip:${ip(req)}`, 15, 15 * MINUTE);
     const phone = await checkCode(body.phone, "reset", body.code);
     const user = await prisma.user.findUnique({ where: { phone } });
@@ -175,7 +193,7 @@ authRouter.post(
 authRouter.post(
   "/reset/token",
   h(async (req, res) => {
-    const body = parse(z.object({ token: z.string().min(20).max(200), password: z.string().min(8).max(200) }), req.body);
+    const body = parse(z.object({ token: z.string().min(20).max(200), password: z.string().min(8, "use at least 8 characters").max(200) }), req.body);
     hit(`reset-verify:ip:${ip(req)}`, 15, 15 * MINUTE);
     const row = await prisma.passwordResetToken.findUnique({ where: { tokenHash: sha256(body.token) } });
     if (!row || row.usedAt || row.expiresAt < new Date()) throw new HttpError(400, "That link has expired or was already used. Ask for a new one.");

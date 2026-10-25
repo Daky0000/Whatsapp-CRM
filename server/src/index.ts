@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { requireUser } from "./lib/auth.js";
 import { HttpError } from "./lib/errors.js";
+import { adminRouter } from "./routes/admin.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { authRouter } from "./routes/auth.js";
 import { billingRouter } from "./routes/billing.js";
@@ -17,6 +18,7 @@ import { inboxRouter } from "./routes/inbox.js";
 import { settingsRouter } from "./routes/settings.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 import { whatsappRouter } from "./routes/whatsapp.js";
+import { ensureOwner } from "./services/owner.js";
 import { startScheduler } from "./services/scheduler.js";
 
 function hostOf(origin: string): string | null {
@@ -51,7 +53,7 @@ app.use("/api", (req, _res, next) => {
 app.use("/api/auth", authRouter);
 const api = express.Router();
 api.use(requireUser);
-for (const router of [settingsRouter, whatsappRouter, inboxRouter, contactsRouter, broadcastsRouter, automationRouter, businessRouter, analyticsRouter, billingRouter]) {
+for (const router of [settingsRouter, whatsappRouter, inboxRouter, contactsRouter, broadcastsRouter, automationRouter, businessRouter, analyticsRouter, billingRouter, adminRouter]) {
   api.use(router);
 }
 app.use("/api", api);
@@ -72,7 +74,11 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: "Something went wrong on our side. Please try again." });
 });
 
-app.listen(config.port, () => {
-  console.log(`WhatsApp CRM listening on :${config.port}`);
-  startScheduler();
-});
+ensureOwner()
+  .catch((err) => console.error("[owner] could not set up the owner account:", err))
+  .finally(() => {
+    app.listen(config.port, () => {
+      console.log(`WhatsApp CRM listening on :${config.port}`);
+      startScheduler();
+    });
+  });

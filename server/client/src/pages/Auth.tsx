@@ -58,10 +58,10 @@ function Login({ onDone, onForgot }: { onDone: () => void; onForgot: () => void 
     <form onSubmit={submit} className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold">Welcome back</h2>
-        <p className="mt-1 text-sm text-slate-500">Sign in with your email or phone number.</p>
+        <p className="mt-1 text-sm text-slate-500">Sign in with your email, phone number or username.</p>
       </div>
       <div>
-        <label className="label">Email or phone</label>
+        <label className="label">Email, phone or username</label>
         <input className="input" required value={form.identifier} onChange={(e) => setForm({ ...form, identifier: e.target.value })} autoComplete="username" placeholder="you@example.com or 024 123 4567" />
       </div>
       <div>

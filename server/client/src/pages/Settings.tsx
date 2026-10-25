@@ -28,6 +28,7 @@ export default function SettingsPage() {
         <BusinessProfile />
         <SellerPayments />
         <Team />
+        <ChangePassword />
       </div>
     </>
   );
@@ -335,6 +336,24 @@ function SellerPayments() {
       ) : (
         <p className="mt-3 text-sm text-slate-500">Ask the owner to connect Paystack.</p>
       )}
+    </section>
+  );
+}
+
+function ChangePassword() {
+  const [form, setForm] = useState({ current: "", password: "" });
+  const { busy, run } = useAction();
+  const save = async () => {
+    if (await run(() => api("/auth/password", { body: form }), "Password changed. Other devices have been signed out.")) setForm({ current: "", password: "" });
+  };
+  return (
+    <section className="card p-5">
+      <h2 className="text-sm font-semibold">Your password</h2>
+      <div className="mt-3 grid max-w-xl gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <input className="input" type="password" placeholder="Current password" autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} />
+        <input className="input" type="password" placeholder="New password (8+ characters)" autoComplete="new-password" minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        <button className="btn-primary" disabled={busy || !form.current || form.password.length < 8} onClick={save}>Change</button>
+      </div>
     </section>
   );
 }

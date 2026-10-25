@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api, type Me } from "./api";
+import AdminPage from "./pages/Admin";
 import AnalyticsPage from "./pages/Analytics";
 import AuthPage, { ResetFromLink } from "./pages/Auth";
 import BillingPage from "./pages/Billing";
@@ -61,6 +62,7 @@ export default function App() {
               <Route path="/automation" element={<AutomationPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/billing" element={<BillingPage />} />
+              {me.user.platformAdmin && <Route path="/admin" element={<AdminPage />} />}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Shell>
@@ -89,7 +91,7 @@ function Shell({ me, onLogout, children }: { me: Me; onLogout: () => void; child
           </div>
         </div>
         <nav className="space-y-0.5 p-3">
-          {NAV.map((n) => (
+          {[...NAV, ...(me.user.platformAdmin ? [{ to: "/admin", label: "All workspaces", icon: "🛡" }] : [])].map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
