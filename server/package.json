@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "npm run build:client && prisma generate && tsc -p tsconfig.json",
-    "build:client": "npm --prefix client ci --include=dev && npm --prefix client run build",
+    "build:client": "npm --prefix client install --include=dev && npm --prefix client run build",
     "build:server": "prisma generate && tsc -p tsconfig.json",
     "start": "prisma migrate deploy && node dist/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
