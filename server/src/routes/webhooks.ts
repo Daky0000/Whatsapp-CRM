@@ -7,6 +7,7 @@ import { decrypt } from "../lib/crypto.js";
 import { checkOrderPayment } from "../services/payLinks.js";
 import { handlePaystackEvent } from "../services/billing.js";
 import { handleWebhook, type WebhookPayload } from "../services/inbound.js";
+import { getSettingSync } from "../lib/systemSettings.js";
 
 /**
  * Public webhook endpoints, mounted ABOVE the JSON body parser: both Meta and
@@ -18,14 +19,16 @@ export const webhooksRouter = Router();
 const raw = express.raw({ type: "*/*", limit: "5mb" });
 
 webhooksRouter.get("/whatsapp", (req, res) => {
-  const ok = req.query["hub.mode"] === "subscribe" && config.meta.verifyToken && req.query["hub.verify_token"] === config.meta.verifyToken;
+  const verifyToken = getSettingSync("WHATSAPP_VERIFY_TOKEN") || config.meta.verifyToken;
+  const ok = req.query["hub.mode"] === "subscribe" && verifyToken && req.query["hub.verify_token"] === verifyToken;
   if (!ok) return res.sendStatus(403);
   res.status(200).send(String(req.query["hub.challenge"] ?? ""));
 });
 
 webhooksRouter.post("/whatsapp", raw, (req, res) => {
   const body = req.body as Buffer;
-  if (!Buffer.isBuffer(body) || !verifyMetaSignature(body, req.header("x-hub-signature-256"))) return res.sendStatus(401);
+  const appSecret = getSettingSync("META_APP_SECRET") || config.meta.appSecret;
+  if (!Buffer.isBuffer(body) || !verifyMetaSignature(body, req.header("x-hub-signature-256"), appSecret)) return res.sendStatus(401);
   let payload: WebhookPayload;
   try {
     payload = JSON.parse(body.toString("utf8")) as WebhookPayload;
@@ -68,13 +71,13 @@ webhooksRouter.post("/paystack-merchant/:workspaceId", raw, async (req, res) => 
   const key = workspace?.merchantPaystackKeyEnc ? decrypt(workspace.merchantPaystackKeyEnc) : null;
   if (!workspace || !key || !Buffer.isBuffer(body) || !verifyPaystackSignature(body, req.header("x-paystack-signature"), key)) return res.sendStatus(401);
   res.sendStatus(200);
+  let evt: Parameters<typeof handlePaystackEvent>[0];
   try {
-    const evt = JSON.parse(body.toString("utf8")) as { event?: string; data?: { reference?: string } };
-    if (evt.event !== "charge.success" || !evt.data?.reference?.startsWith("wpay-")) return;
-    const order = await prisma.order.findFirst({ where: { workspaceId: workspace.id, paymentReference: evt.data.reference }, select: { id: true } });
-    // Re-verified with Paystack inside checkOrderPayment; the webhook only says "look now".
-    if (order) await checkOrderPayment(workspace.id, order.id);
-  } catch (err) {
-    console.error("[webhook:paystack-merchant]", err);
+    evt = JSON.parse(body.toString("utf8"));
+  } catch {
+    return;
+  }
+  if (evt.event === "charge.success" && evt.data?.reference) {
+    checkOrderPayment(evt.data.reference, key).catch((err) => console.error("[webhook:paystack-merchant]", err));
   }
 });

@@ -7,6 +7,7 @@ import { encrypt } from "../lib/crypto.js";
 import { HttpError } from "../lib/errors.js";
 import { h, param, parse } from "../lib/http.js";
 import { normalizePhone } from "../lib/phone.js";
+import { getSettingSync } from "../lib/systemSettings.js";
 import {
   downloadMedia,
   exchangeSignupCode,
@@ -22,12 +23,17 @@ export const whatsappRouter = Router();
 whatsappRouter.get(
   "/whatsapp/config",
   h(async (_req, res) => {
-    // Public values for Meta's Embedded Signup in the browser. The app secret never leaves the server.
+    // Dynamic values with fallback to config. The app secret never leaves the server.
+    const appId = getSettingSync("META_APP_ID") || config.meta.appId || null;
+    const configId = getSettingSync("META_CONFIG_ID") || config.meta.configId || null;
+    const appSecret = getSettingSync("META_APP_SECRET") || config.meta.appSecret;
+    const graphVersion = getSettingSync("WHATSAPP_GRAPH_VERSION") || config.meta.graphVersion;
+
     res.json({
-      appId: config.meta.appId || null,
-      configId: config.meta.configId || null,
-      graphVersion: config.meta.graphVersion,
-      embeddedSignupReady: Boolean(config.meta.appId && config.meta.configId && config.meta.appSecret),
+      appId,
+      configId,
+      graphVersion,
+      embeddedSignupReady: Boolean(appId && configId && appSecret),
     });
   }),
 );

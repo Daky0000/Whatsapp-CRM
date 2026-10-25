@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, type Me } from "./api";
 import AdminPage from "./pages/Admin";
 import AnalyticsPage from "./pages/Analytics";
@@ -14,7 +14,7 @@ import AutomationPage from "./pages/Automation";
 import SettingsPage from "./pages/Settings";
 import { MeContext, ToastProvider } from "./ui";
 
-const NAV = [
+const USER_NAV = [
   { to: "/", label: "Dashboard", icon: "◧" },
   { to: "/inbox", label: "Inbox", icon: "✉" },
   { to: "/contacts", label: "Contacts", icon: "☺" },
@@ -75,53 +75,164 @@ export default function App() {
 function Shell({ me, onLogout, children }: { me: Me; onLogout: () => void; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   useEffect(() => setOpen(false), [location.pathname]);
   const trialDays = me.workspace.trialEndsAt ? Math.ceil((new Date(me.workspace.trialEndsAt).getTime() - Date.now()) / 86_400_000) : 0;
+  const isAdminRoute = location.pathname.startsWith("/admin");
 
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div className="flex h-dvh overflow-hidden bg-[#f0f2f5]">
+      {/* Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-64 transform border-r border-slate-200 bg-white transition md:static md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-slate-200/90 bg-white transition md:static md:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        <div className="flex h-14 items-center gap-2 border-b border-slate-100 px-5">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-600 text-sm font-bold text-white">D</span>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold">WhatsApp CRM</div>
-            <div className="text-[11px] text-slate-400">by DakyX</div>
+        {/* Brand Header */}
+        <div className="flex h-16 items-center justify-between border-b border-slate-100 px-5">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#008069] text-sm font-bold text-white shadow-xs">
+              D
+            </span>
+            <div className="leading-tight">
+              <div className="text-sm font-bold tracking-tight text-slate-900">WhatsApp CRM</div>
+              <div className="text-[11px] font-medium text-[#008069]">by DakyX</div>
+            </div>
           </div>
+          {me.user.platformAdmin && (
+            <span className="rounded-full bg-[#dcf8c6] px-2 py-0.5 text-[10px] font-semibold text-[#075e54]">
+              Staff
+            </span>
+          )}
         </div>
-        <nav className="space-y-0.5 p-3">
-          {[...NAV, ...(me.user.platformAdmin ? [{ to: "/admin", label: "All workspaces", icon: "🛡" }] : [])].map((n) => (
+
+        {/* Admin / User View Switcher Segmented Control */}
+        {me.user.platformAdmin && (
+          <div className="p-3 border-b border-slate-100 bg-slate-50/60">
+            <div className="flex rounded-xl bg-slate-200/70 p-1 text-xs font-semibold shadow-2xs">
+              <button
+                onClick={() => navigate("/")}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 transition ${
+                  !isAdminRoute
+                    ? "bg-white text-[#075e54] shadow-xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>👤</span>
+                <span>User CRM</span>
+              </button>
+              <button
+                onClick={() => navigate("/admin")}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 transition ${
+                  isAdminRoute
+                    ? "bg-[#008069] text-white shadow-xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>🛡</span>
+                <span>Admin</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation List */}
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+          {USER_NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               end={n.to === "/"}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${isActive ? "bg-brand-50 font-medium text-brand-700" : "text-slate-600 hover:bg-slate-50"}`
+                `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
+                  isActive && !isAdminRoute
+                    ? "bg-[#dcf8c6] font-semibold text-[#075e54]"
+                    : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
+                }`
               }
             >
-              <span className="w-5 text-center">{n.icon}</span>
-              {n.label}
+              <span className="w-5 text-center text-base">{n.icon}</span>
+              <span>{n.label}</span>
             </NavLink>
           ))}
+
+          {me.user.platformAdmin && (
+            <div className="pt-2">
+              <div className="px-3 pb-1 text-[10px] font-bold tracking-wider uppercase text-slate-400">
+                Platform Admin
+              </div>
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
+                    isActive
+                      ? "bg-[#008069] font-semibold text-white shadow-xs"
+                      : "text-slate-700 bg-slate-100/80 hover:bg-slate-200"
+                  }`
+                }
+              >
+                <span className="w-5 text-center">🛡</span>
+                <span className="font-medium">Admin Console</span>
+              </NavLink>
+            </div>
+          )}
         </nav>
-        <div className="absolute inset-x-0 bottom-0 border-t border-slate-100 p-4 text-xs text-slate-500">
-          <div className="truncate font-medium text-slate-700">{me.workspace.name}</div>
-          <div className="truncate">{me.user.email}</div>
-          <button className="mt-2 text-brand-700 hover:underline" onClick={onLogout}>
+
+        {/* User Workspace Info & Logout */}
+        <div className="border-t border-slate-100 p-4 text-xs text-slate-500">
+          <div className="flex items-center justify-between">
+            <span className="truncate font-semibold text-slate-800">{me.workspace.name}</span>
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+              {me.workspace.plan}
+            </span>
+          </div>
+          <div className="truncate text-slate-500">{me.user.email}</div>
+          <button className="mt-2 text-[#008069] font-medium hover:underline" onClick={onLogout}>
             Sign out
           </button>
         </div>
       </aside>
-      {open && <div className="fixed inset-0 z-20 bg-slate-900/30 md:hidden" onClick={() => setOpen(false)} />}
 
+      {/* Mobile Drawer Backdrop */}
+      {open && <div className="fixed inset-0 z-20 bg-slate-900/40 md:hidden" onClick={() => setOpen(false)} />}
+
+      {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 md:hidden">
-          <button className="rounded p-1.5 hover:bg-slate-100" onClick={() => setOpen(true)} aria-label="Menu">
-            ☰
-          </button>
-          <span className="text-sm font-semibold">WhatsApp CRM</span>
+        {/* Mobile Header */}
+        <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
+          <div className="flex items-center gap-3">
+            <button className="rounded p-1.5 hover:bg-slate-100" onClick={() => setOpen(true)} aria-label="Menu">
+              ☰
+            </button>
+            <span className="text-sm font-bold text-slate-900">WhatsApp CRM</span>
+          </div>
+          {me.user.platformAdmin && (
+            <button
+              onClick={() => navigate(isAdminRoute ? "/" : "/admin")}
+              className="rounded-lg bg-[#008069] px-2.5 py-1 text-xs font-semibold text-white"
+            >
+              {isAdminRoute ? "User View" : "Admin"}
+            </button>
+          )}
         </header>
+
+        {/* Desktop Admin Quick Switch Banner when in User view */}
+        {me.user.platformAdmin && !isAdminRoute && (
+          <div className="hidden md:flex items-center justify-between border-b border-[#00a884]/20 bg-[#eef9f3] px-6 py-2 text-xs text-[#075e54]">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-[#25d366]" />
+              <span>Viewing Workspace: <b>{me.workspace.name}</b> (You have Superadmin rights)</span>
+            </div>
+            <button
+              onClick={() => navigate("/admin")}
+              className="flex items-center gap-1.5 rounded-lg bg-[#008069] px-3 py-1 font-semibold text-white shadow-2xs hover:bg-[#006e5a]"
+            >
+              <span>🛡 Switch to Admin Console</span>
+            </button>
+          </div>
+        )}
+
+        {/* Billing & Trial Banners */}
         {!me.billing.active ? (
           <Banner tone="red">
             Your {me.workspace.status === "TRIALING" || me.workspace.status === "EXPIRED" ? "trial or plan" : "plan"} has ended. Your chats are safe, but sending and AI are paused.{" "}
@@ -132,13 +243,14 @@ function Shell({ me, onLogout, children }: { me: Me; onLogout: () => void; child
             Free trial of Pro: {trialDays} day{trialDays === 1 ? "" : "s"} left. <Link to="/billing" className="font-semibold underline">See plans</Link>
           </Banner>
         ) : null}
-        {!me.connection && (
+        {!me.connection && !isAdminRoute && (
           <Banner tone="sky">
             Connect your WhatsApp Business number to start.{" "}
             <Link to="/settings" className="font-semibold underline">Connect WhatsApp</Link>
           </Banner>
         )}
-        {/* The inbox fills the screen edge to edge; every other page scrolls inside a centred column. */}
+
+        {/* Page Content */}
         {location.pathname.startsWith("/inbox") ? (
           <main className="min-h-0 flex-1">{children}</main>
         ) : (
@@ -152,17 +264,25 @@ function Shell({ me, onLogout, children }: { me: Me; onLogout: () => void; child
 }
 
 function Banner({ tone, children }: { tone: "red" | "amber" | "sky"; children: React.ReactNode }) {
-  const styles = { red: "bg-red-50 text-red-800 border-red-100", amber: "bg-amber-50 text-amber-900 border-amber-100", sky: "bg-sky-50 text-sky-900 border-sky-100" };
-  return <div className={`border-b px-4 py-2 text-sm ${styles[tone]}`}>{children}</div>;
+  const styles = {
+    red: "bg-red-50 text-red-800 border-red-100",
+    amber: "bg-amber-50 text-amber-900 border-amber-100",
+    sky: "bg-[#eef9f3] text-[#075e54] border-[#d4f4e2]",
+  };
+  return <div className={`border-b px-4 py-2 text-xs font-medium ${styles[tone]}`}>{children}</div>;
 }
 
 function PaidPage() {
   return (
-    <div className="grid min-h-dvh place-items-center bg-slate-50 p-6">
-      <div className="card max-w-sm p-8 text-center">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-50 text-2xl">✓</div>
-        <h1 className="mt-4 text-lg font-semibold">Thank you!</h1>
-        <p className="mt-2 text-sm text-slate-600">If your payment went through, the seller can see it now. You can close this page and go back to WhatsApp.</p>
+    <div className="grid min-h-dvh place-items-center bg-[#f0f2f5] p-6">
+      <div className="card max-w-sm p-8 text-center shadow-md">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#dcf8c6] text-2xl text-[#075e54]">
+          ✓
+        </div>
+        <h1 className="mt-4 text-lg font-bold text-slate-900">Payment Confirmed</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Your payment was processed successfully. The merchant has been notified and your order is confirmed. You can close this window and return to WhatsApp.
+        </p>
       </div>
     </div>
   );

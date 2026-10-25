@@ -1,12 +1,13 @@
 import { hmacHex, safeEqualHex } from "./crypto.js";
 import { HttpError } from "./errors.js";
+import { getSettingSync } from "./systemSettings.js";
 
 /**
  * Paystack, configured exactly like DakyXTech OS (server/src/lib/paystack.ts in
  * the dakyworld repo): the same two secret-key slots, sorted by their prefix
  * rather than by which slot they sit in, and the same PAYSTACK_MODE switch.
- * Here they come from the environment instead of the OS's settings table, so
- * the Railway service can be given the same values as the OS.
+ * Here they come from the dynamic system settings with fallback to environment,
+ * so settings saved from the Admin Dashboard take effect immediately.
  *
  * **Amounts are in pesewas.** Paystack always takes the minor unit, and the
  * mistake is silent: GHS 50 sent as 50 charges GHS 0.50. Every crossing goes
@@ -17,15 +18,17 @@ const BASE = "https://api.paystack.co";
 export type PaystackMode = "live" | "test";
 
 export function paystackKeys(): Record<PaystackMode, string | null> {
-  const stored = [process.env.PAYSTACK_SECRET_KEY, process.env.PAYSTACK_TEST_SECRET_KEY];
+  const live = getSettingSync("PAYSTACK_SECRET_KEY") || process.env.PAYSTACK_SECRET_KEY || null;
+  const test = getSettingSync("PAYSTACK_TEST_SECRET_KEY") || process.env.PAYSTACK_TEST_SECRET_KEY || null;
+  const stored = [live, test];
   const pick = (mode: PaystackMode) => stored.find((key) => key?.startsWith(`sk_${mode}_`)) ?? null;
   return { live: pick("live"), test: pick("test") };
 }
 
 export function paystackMode(): PaystackMode | null {
   const keys = paystackKeys();
-  const chosen = process.env.PAYSTACK_MODE?.trim().toLowerCase();
-  if ((chosen === "live" || chosen === "test") && keys[chosen]) return chosen;
+  const chosen = (getSettingSync("PAYSTACK_MODE") || process.env.PAYSTACK_MODE || "").trim().toLowerCase();
+  if ((chosen === "live" || chosen === "test") && keys[chosen as PaystackMode]) return chosen as PaystackMode;
   return keys.live ? "live" : keys.test ? "test" : null;
 }
 

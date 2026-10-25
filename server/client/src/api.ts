@@ -75,3 +75,62 @@ export interface Me {
   billing: { active: boolean; limits: Record<string, number | boolean | null | string>; usage: { triage: number; drafts: number } };
   connection: { mode: "CLOUD" | "IMPORT"; displayPhone: string | null; verifiedName: string | null; coexistence: boolean; historySyncedAt: string | null } | null;
 }
+
+export interface AdminOverview {
+  totalWorkspaces: number;
+  payingWorkspaces: number;
+  trialWorkspaces: number;
+  totalContacts: number;
+  totalConversations: number;
+  totalMessages: number;
+  connectedCloud: number;
+  connectedImport: number;
+  totalAiTriages: number;
+  mrrGhs: number;
+}
+
+export interface PlatformConfig {
+  whatsapp: {
+    appId: string;
+    hasAppSecret: boolean;
+    appSecretMasked: string;
+    configId: string;
+    verifyToken: string;
+    graphVersion: string;
+    hasAccessToken: boolean;
+    accessTokenMasked: string;
+    phoneNumberId: string;
+    wabaId: string;
+    webhookUrl: string;
+    coexistence: boolean;
+    embeddedSignupReady: boolean;
+  };
+  paystack: {
+    mode: "live" | "test";
+    hasLiveSecret: boolean;
+    liveSecretMasked: string;
+    livePublicKey: string;
+    hasTestSecret: boolean;
+    testSecretMasked: string;
+    testPublicKey: string;
+    webhookUrl: string;
+    starterPriceGhs: number;
+    proPriceGhs: number;
+  };
+  ai: {
+    hasApiKey: boolean;
+    apiKeyMasked: string;
+    triageModel: string;
+    draftModel: string;
+    marginMultiplier: number;
+  };
+  vynfy: {
+    hasApiKey: boolean;
+    apiKeyMasked: string;
+    senderId: string;
+  };
+  email: {
+    fromAddress: string;
+    senderName: string;
+  };
+}
