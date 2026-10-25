@@ -68,7 +68,7 @@ async function call(path: string, apiKey: string, body: Record<string, unknown>)
         "content-type": "application/json",
         accept: "application/json",
         // A named agent is something Vynfy can allowlist; an empty one is cheap for an edge to block.
-        "user-agent": "DakyX-WhatsAppCRM/1.0 (+https://whatsappcrm.dakyx.com)",
+        "user-agent": "DakyX-WhatsAppCRM/1.0 (+https://whatsapp.dakyx.com)",
         "x-api-key": apiKey,
       },
       body: JSON.stringify(body),

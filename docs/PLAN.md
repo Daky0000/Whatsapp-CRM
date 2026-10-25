@@ -1,7 +1,7 @@
 # DakyX WhatsApp CRM — Product & Build Plan
 
 **Product:** DakyX WhatsApp CRM, part of the DakyXTech ecosystem
-**Address:** `whatsappcrm.dakyx.com` (Railway, like `os.`, `app.` and `editor.`)
+**Address:** `whatsapp.dakyx.com` (Railway, like `os.`, `app.` and `editor.`)
 **Market:** Ghana first, then the rest of West Africa. Built for sellers whose orders arrive on WhatsApp.
 **Payments:** Paystack in GHS, set up the same way as DakyXTech OS
 **Version:** 1.0, 24 October 2026
@@ -135,7 +135,7 @@ The AI model is a settings choice (`AI_TRIAGE_MODEL`, `AI_DRAFT_MODEL`). The cod
 ## 5. How a message flows
 
 ```
-Customer ──WhatsApp──> Meta Cloud API ──webhook──> whatsappcrm.dakyx.com
+Customer ──WhatsApp──> Meta Cloud API ──webhook──> whatsapp.dakyx.com
                                                      │
                        ┌─────────────────────────────┤
                        ▼                             ▼
@@ -165,7 +165,7 @@ Mirrors DakyXTech OS, so the same team can run both:
 - **WhatsApp:** Meta Graph API (Cloud API). The webhook is checked against Meta's `X-Hub-Signature-256` over the raw request body.
 - **Payments:** Paystack over `fetch`. It reads the **same Paystack keys and mode settings as DakyXTech OS** (`PAYSTACK_SECRET_KEY`, `PAYSTACK_TEST_SECRET_KEY`, `PAYSTACK_MODE`, `PAYSTACK_CALLBACK_URL`). The webhook is checked with HMAC-SHA512, amounts are in pesewas, and the currency is GHS.
 - **Security:** each seller's WhatsApp access token is stored encrypted (AES-256-GCM). Every query is scoped to the seller's workspace. Passwords are hashed with scrypt. Sessions are HTTP-only cookies.
-- **Hosting:** Railway service with custom domain `whatsappcrm.dakyx.com`, which needs a DNS `CNAME` to the Railway target. Don't touch the MX/SPF/DKIM records.
+- **Hosting:** Railway service with custom domain `whatsapp.dakyx.com`, which needs a DNS `CNAME` to the Railway target. Don't touch the MX/SPF/DKIM records.
 
 ### Main data objects
 Workspace (plan, trial, limits) · User · WhatsAppConnection · Contact · Conversation (category, stage, AI summary) · Message · Draft · Order · Product · KnowledgeItem · BroadcastList · Broadcast · BroadcastRecipient · AutoReplyRule · Subscription · Payment · WalletTransaction · UsageCounter.
@@ -181,7 +181,7 @@ Workspace (plan, trial, limits) · User · WhatsAppConnection · Contact · Conv
 
 ## 8. Found while building
 
-- **Paystack has one webhook URL per account**, and the shared account's URL belongs to DakyXTech OS. One-off payments (MoMo or card) don't need it: the app verifies on return from checkout and re-checks pending payments every 10 minutes. **Automatic card renewals do.** The OS must forward WhatsApp CRM events to `whatsappcrm.dakyx.com/webhooks/paystack`; the README has the exact rule. The alternative is a separate Paystack account (or subaccount) for this product.
+- **Paystack has one webhook URL per account**, and the shared account's URL belongs to DakyXTech OS. One-off payments (MoMo or card) don't need it: the app verifies on return from checkout and re-checks pending payments every 10 minutes. **Automatic card renewals do.** The OS must forward WhatsApp CRM events to `whatsapp.dakyx.com/webhooks/paystack`; the README has the exact rule. The alternative is a separate Paystack account (or subaccount) for this product.
 - **Follow-ups must go out inside the 24-hour window.** A nudge two days later can only be a paid template. So the follow-up reminder fires 18–23 hours after the customer's last message.
 - **Chat exports carry no message ids.** The importer fingerprints each line, so importing the same file twice doesn't duplicate it.
 
@@ -200,4 +200,4 @@ Workspace (plan, trial, limits) · User · WhatsAppConnection · Contact · Conv
 1. Will DakyXTech apply as a **Meta Tech Provider** (cheaper long-term) or start through a **BSP** like 360dialog (faster)?
 2. Confirm the **wallet margin** (suggested 15%) and the **free trial** (7 days of Pro).
 3. Confirm the **plan limits** in section 4. They're a starting point and easy to change in `server/src/lib/plans.ts`.
-4. The `whatsappcrm.dakyx.com` DNS record, once Railway gives the target.
+4. The `whatsapp.dakyx.com` DNS record, once Railway gives the target.

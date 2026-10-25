@@ -138,7 +138,7 @@ def build():
         canvas.saveState()
         canvas.setFont("Body", 7.5)
         canvas.setFillColor(MUTED)
-        canvas.drawString(18 * mm, 10 * mm, "DakyX WhatsApp CRM · whatsappcrm.dakyx.com")
+        canvas.drawString(18 * mm, 10 * mm, "DakyX WhatsApp CRM · whatsapp.dakyx.com")
         canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Page {d.page}")
         canvas.restoreState()
 
